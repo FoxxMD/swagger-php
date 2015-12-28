@@ -57,6 +57,12 @@ abstract class AbstractAnnotation
     public $_context;
 
     /**
+     * An array of flags used to determine if this annotation should be used.
+     * @var array
+     */
+    public $generateWhen;
+
+    /**
      * Declarative mapping of Annotation types to properties
      * @var array
      */
@@ -84,6 +90,18 @@ abstract class AbstractAnnotation
             } elseif ($key !== 'value') {
                 $properties = array_keys(get_object_vars($this));
                 Logger::notice('Skipping unsupported property: "'.$key.'" for @'.get_class($this).', expecting "'.implode('", "', $properties).'" in '.$this->_context);
+            }
+
+
+            // Convert value to an array if a string is used for the value
+            if ($key == 'generateWhen') {
+                if (is_string($this->{$key})) {
+                    if (strpos($this->{$key}, '[') !== false) {
+                        $this->{$key} = $this->decode($value);
+                    } else {
+                        $this->{$key} = preg_split('/(\s)*,(\s)*/', $value);
+                    }
+                }
             }
         }
         if (isset($values['value'])) {

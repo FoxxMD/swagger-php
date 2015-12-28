@@ -60,13 +60,21 @@ class Swagger
     protected $processors;
 
     /**
+     * @var string
+     */
+    public $generateWhen;
+
+    /**
      *
      * @param string|array $paths Project root folder
      * @param string|array $excludePath Exclude paths
+     * @param string $generateWhen Flag to use to determine if an annotation should be generated
      * )
      */
-    public function __construct($paths = array(), $excludePath = array())
+    public function __construct($paths = array(), $excludePath = array(), $generateWhen = null)
     {
+        $this->generateWhen = $generateWhen;
+
         if (is_string($paths)) {
             $paths = array($paths);
         }
@@ -136,7 +144,9 @@ class Swagger
         }
         $result['apis'] = array();
 
-        foreach ($this->registry as $resource) {
+        $filtered = $this->filterByGeneratorKeys($this->registry, $this->generateWhen);
+
+        foreach ($filtered as $resource) {
             if ($resource->swaggerVersion > $result['swaggerVersion']) {
                 $result['swaggerVersion'] = $resource->swaggerVersion;
             }
@@ -187,7 +197,7 @@ class Swagger
             Logger::warning('Resource "'.$resourceName.'" not found, try "'.implode('", "', $this->getResourceNames()).'"');
             return false;
         }
-        $resource = $this->registry[$resourceName];
+        $resource = $this->filterByGeneratorKeys($this->registry[$resourceName], $this->generateWhen);
         // Apply defaults
         if ($resource->basePath === null) {
             $resource->basePath = $options['defaultBasePath'];
@@ -525,6 +535,42 @@ class Swagger
             }
         }
         return $models;
+    }
+
+    /**
+     * Filters outs any Annotations that include a generateWhen prop and do not include correct flag
+     * @param      $node
+     * @param null $when
+     * @return mixed
+     */
+    protected function filterByGeneratorKeys($node, $when = null)
+    {
+        if($when == null) {
+            return $node;
+        }
+
+        if (is_array($node)) {
+            foreach ($node as $key => $annotation) {
+                if(!$this->filterByGeneratorKeys($annotation, $when)){
+                    unset($node[$key]);
+                }
+            }
+            return $node;
+        } elseif($node instanceof Annotations\AbstractAnnotation) {
+
+            if(isset($node->generateWhen) && !in_array($when, $node->generateWhen)){
+                return false;
+            }
+
+            $props = array_keys(get_object_vars($node));
+            foreach($props as $propKey => $propVal) {
+                if(is_array($node->{$propVal})){
+                    $node->{$propVal} = $this->filterByGeneratorKeys($node->{$propVal}, $when);
+                }
+            }
+            return $node;
+        }
+        return $node;
     }
 
     /**
