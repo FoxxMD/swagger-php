@@ -765,7 +765,7 @@ class Swagger
      */
     public function getResourceNames()
     {
-        return array_keys($this->registry);
+        return array_keys($this->filterByGeneratorKeys($this->registry, $this->generateWhen));
     }
 
     /**
